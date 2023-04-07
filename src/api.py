@@ -1,10 +1,12 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
+import docker
 import json
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 from functools import wraps
 from flask import Blueprint, make_response, request
+from sqlalchemy import update
 
 from db import engine, History, AvailableInstances, Tokens
 
@@ -87,9 +89,47 @@ def query_instance():
   return json_success({"active": True, "conn": connstr, "expiry": expiry})
 
 @api.route("/create", methods=["POST"])
+@api_authorized
 def create_instance():
   pass
 
 @api.route("/destroy", methods=["POST"])
+@api_authorized
 def destroy_instance():
-  pass
+  data = request.json
+  schema = {
+    "type": "object",
+    "properties": {
+      "name": {"type": "string"},
+      "player": {"type": "integer"},
+    },
+    "required": ["name", "player"],
+  }
+  
+  try:
+    validate(instance=data, schema=schema)
+  except ValidationError:
+    return json_fail("Bad request", 400)
+
+  conn = engine.connect()
+  instance = conn.execute(
+    History.select().where(
+      AvailableInstances.c.key == data["name"],
+      History.c.player == data["player"],
+      History.c.expiry_time > datetime.now(),
+    )
+  ).fetchone()
+  if instance is None:
+    return json_fail("This instance is not active", 404)
+  
+  client = docker.from_env()
+  container = client.containers.get(instance[9])
+  container.stop(timeout=0)
+  container.remove()
+  conn.execute(
+    update(History).
+    where(History.c.id == instance[0]).
+    values(expiry_time=datetime.now())
+  )  # TODO this didn't update for some reason
+  
+  return json_success(True)

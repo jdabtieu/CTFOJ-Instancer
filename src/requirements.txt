@@ -4,3 +4,4 @@ Flask==2.2.*
 flask-session2==1.3.*
 Flask-WTF==1.1.*
 jsonschema==4.17.*
+docker==6.0.*

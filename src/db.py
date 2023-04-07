@@ -13,6 +13,7 @@ History = Table(
   Column('flag', String, nullable=False),
   Column('host', String, nullable=False),
   Column('port', Integer, nullable=False),
+  Column('docker_id', String, nullable=False),
 )
 AvailableInstances = Table(
   'available_instances', meta,
@@ -32,7 +33,7 @@ Users = Table(
 Tokens = Table(
   'tokens', meta,
   Column('id', Integer, primary_key=True),
-  Column('name', Integer, nullable=False),
+  Column('name', String, nullable=False),
   Column('key', String, nullable=False),
 )
 meta.create_all(engine)
