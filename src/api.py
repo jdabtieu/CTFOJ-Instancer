@@ -45,6 +45,7 @@ def api_authorized(f):
     ).fetchone()
     if user is None:
       return json_fail("Unauthorized", 401)
+    request.token = token
     return f(*args, **kwargs)
   return decorated_function
 
@@ -66,6 +67,7 @@ def query_instance():
   except ValidationError:
     return json_fail("Bad request", 400)
   
+  # Query the instance metadata
   conn = engine.connect()
   instance = conn.execute(
     History.select().where(
@@ -75,20 +77,26 @@ def query_instance():
     )
   ).fetchone()
   if instance is None:
+    conn.close()
     return json_success({"active": False})
   
+  # Get the image spec
   detail = conn.execute(
     AvailableInstances.select().where(
       AvailableInstances.c.id == instance.instance
     )
   ).fetchone()
+  if detail is None:
+    conn.close()
+    return json_fail("No container with that key exists", 404)
   
+  # Construct the connection string
   host = instance.host
   port = instance.port
-  
   connstr = detail.connstr.replace("HOST", host).replace("PORT", str(port))
   expiry = round(datetime.timestamp(instance.expiry_time))
   
+  conn.close()
   return json_success({"active": True, "conn": connstr, "expiry": expiry})
 
 @api.route("/create", methods=["POST"])
@@ -110,7 +118,8 @@ def create_instance():
     validate(instance=data, schema=schema)
   except ValidationError:
     return json_fail("Bad request", 400)
-    
+  
+  # Make sure an instance doesn't already exist
   conn = engine.connect()
   instance = conn.execute(
     History.select().where(
@@ -120,16 +129,20 @@ def create_instance():
     )
   ).fetchone()
   if instance is not None:
+    conn.close()
     return json_fail("An active instance already exists", 404)
   
+  # Get the image spec
   detail = conn.execute(
     AvailableInstances.select().where(
       AvailableInstances.c.key == data["name"]
     )
   ).fetchone()
   if detail is None:
+    conn.close()
     return json_fail("No container with that key exists", 404)
   
+  # Grab the challenge spec and prepare flag
   client = docker.from_env()
   config = json.loads(detail.config)
   config["detach"] = True
@@ -137,30 +150,38 @@ def create_instance():
     config["environment"] = {}
   config["environment"]["FLAG"] = data["flag"]
   config["environment"]["JAIL_ENV_FLAG"] = data["flag"]
+  
+  # Start the container
   try:
     container = client.containers.run(detail.image_name, **config)
   except docker.errors.ImageNotFound:
+    conn.close()
     return json_fail("The container ID does not exist. Please contact an admin", 500)
+    
+  # Grab the port
   container.reload()
-  #import code
-  #code.interact(local=locals())
   try:
     port = int(container.ports[next(iter(container.ports))][0]["HostPort"])
   except StopIteration:
+    conn.close()
     if container.status == "exited":
       return json_fail("The container failed to start. Please contact an admin", 500)
     else:
       container.stop(timeout=0)
       container.remove()
       return json_fail("The container did not expose a port. Please contact an admin", 500)
+  
+  # Create a db entry
+  expiry = datetime.now() + timedelta(seconds=data["duration"])
   conn.execute(
     insert(History).
-    values(instance=detail.id, player=data["player"], token="# TODO",
-           request_time=datetime.now(), expiry_time=datetime.now()+timedelta(days=30),
-           flag=data["flag"], host=settings["host"], port=port, docker_id=container.id)
-  ) # TODO add token field and expiry
+    values(instance=detail.id, player=data["player"], token=request.token,
+           request_time=datetime.now(), expiry_time=expiry, flag=data["flag"],
+           host=settings["host"], port=port, docker_id=container.id)
+  )
   conn.commit()
-  
+  scheduler.add_job(destroy_instance, 'date', run_date=expiry, args=[data])
+  conn.close()
   return query_instance()
 
 @api.route("/destroy", methods=["POST"])
@@ -180,7 +201,10 @@ def destroy_instance():
     validate(instance=data, schema=schema)
   except ValidationError:
     return json_fail("Bad request", 400)
+  return _destroy_instance(data)
 
+def _destroy_instance(data):
+  # Get the running instance's metadata
   conn = engine.connect()
   instance = conn.execute(
     History.select().where(
@@ -190,7 +214,10 @@ def destroy_instance():
     )
   ).fetchone()
   if instance is None:
+    conn.close()
     return json_fail("This instance is not active", 404)
+  
+  # Get the running instance's Docker data
   client = docker.from_env()
   try:
     container = client.containers.get(instance.docker_id)
@@ -202,7 +229,10 @@ def destroy_instance():
       values(expiry_time=datetime.now())
     )
     conn.commit()
+    conn.close()
     return json_fail("This instance is not active", 404)
+  
+  # Kill the container and update the stop time
   container.stop(timeout=0)
   container.remove()
   conn.execute(
@@ -211,5 +241,5 @@ def destroy_instance():
     values(expiry_time=datetime.now())
   )
   conn.commit()
-  
+  conn.close()
   return json_success(True)
