@@ -1,6 +1,6 @@
 from sqlalchemy import MetaData, Table, Column, Integer, String, Boolean, ForeignKey, DateTime,  create_engine
 
-engine = create_engine('sqlite:///data.sqlite', echo=True)
+engine = create_engine('sqlite:///data.sqlite', echo=True, pool_size=20)
 meta = MetaData()
 History = Table(
   'history', meta,

@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+
+{% block title %}History{% endblock %}
+
+{% block main %}
+<h1>History</h1>
+<div style="overflow-x: auto;">
+    <table class="table table-hover table-full-width">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col" style="width: 5%;">Sel</th>
+                <th scope="col" style="width: 17%;">Image</th>
+                <th scope="col" style="width: 7%;">Team</th>
+                <th scope="col" style="width: 17%;">Start Time</th>
+                <th scope="col" style="width: 17%;">Expire Time</th>
+                <th scope="col" style="width: 8%;">Flag</th>
+                <th scope="col" style="width: 29%;">Connection</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+            <tr>
+                <td><input type="checkbox" class="form-check-input"></td>
+                <td>{{ row["name"] }}</a></td>
+                <td>{{ row["team"] }}</td>
+                <td>{{ row["start_time"] }}</td>
+                <td>{{ row["expire_time"] }}</td>
+                <td><a data="{{ row['flag'] }}" onclick="alert(this.getAttribute('data'))" href="#">Click</a></td>
+                <td>{{ row["connection"] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

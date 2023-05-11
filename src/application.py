@@ -30,12 +30,13 @@ def login():
   user = conn.execute(
     Users.select().where(Users.c.username==request.form.get("username"))
   ).fetchone()
-  if user is None or not check_password_hash(user[2], request.form.get("password")):
+  conn.close()
+  if user is None or not check_password_hash(user.password, request.form.get("password")):
     flash("Incorrect credentials", "danger")
     return render_template("auth/login.html")
   
-  session["uid"] = user[0]
-  session["username"] = user[1]
+  session["uid"] = user.id
+  session["username"] = user.username
   
   next_url = request.args.get("next")
   if next_url and "//" not in next_url and ":" not in next_url:
@@ -62,53 +63,50 @@ def active_instances():
   images = conn.execute(
     AvailableInstances.select()
   ).fetchall()
-  images = {x[0]: x for x in images}
+  conn.close()
+  images = {x.id: x for x in images}
   data = [{
-    "name": images[x[1]][1],
-    "team": x[2],
-    "start_time": str(x[4]),
-    "expire_time": str(x[5]),
-    "flag": x[6],
-    "connection": images[x[1]][5].replace("HOST", x[7]).replace("PORT", str(x[8])),
+    "name": images[x.instance].key,
+    "team": x.player,
+    "start_time": str(x.request_time),
+    "expire_time": str(x.expiry_time),
+    "flag": x.flag,
+    "connection": images[x.instance].connstr.replace("HOST", x.host).replace("PORT", str(x.port)),
   } for x in instances]
   
   return render_template("active_instances.html", data=data)
 
-"""
-  'history', meta,
-  Column('id', Integer, primary_key=True),
-  Column('instance', ForeignKey('available_instances.id'), nullable=False),
-  Column('player', Integer, nullable=False),
-  Column('token', ForeignKey('tokens.id'), nullable=False),
-  Column('request_time', DateTime, nullable=False),
-  Column('expiry_time', DateTime, nullable=False),
-  Column('flag', String, nullable=False),
-  Column('host', String, nullable=False),
-  Column('port', Integer, nullable=False),
-  
-  AvailableInstances = Table(
-  'available_instances', meta,
-  Column('id', Integer, primary_key=True),
-  Column('key', String, unique=True, nullable=False),
-  Column('image_name', String, nullable=False),
-  Column('config', String, nullable=False),
-  Column('global', Boolean, nullable=False),
-  Column('connstr', String, nullable=False),
-)
-
-  """
-
 @app.route("/history")
 @login_required
 def history():
-  return render_template("history.html")
+  conn = engine.connect()
+  instances = conn.execute(
+    History.select()
+  ).fetchall()
+  images = conn.execute(
+    AvailableInstances.select()
+  ).fetchall()
+  conn.close()
+  images = {x.id: x for x in images}
+  data = [{
+    "name": images[x.instance].key,
+    "team": x.player,
+    "start_time": str(x.request_time),
+    "expire_time": str(x.expiry_time),
+    "flag": x.flag,
+    "connection": images[x.instance].connstr.replace("HOST", x.host).replace("PORT", str(x.port)),
+  } for x in instances]
+  
+  return render_template("history.html", data=data[::-1])
 
-@app.route("/images")
+@app.route("/images") # TODO
 @login_required
 def images():
   return render_template("images.html")
+  
+# TODO create images endpoints
 
-@app.route("/tokens")
+@app.route("/tokens") # TODO manage tokens endpoint
 @login_required
 def tokens():
   return render_template("tokens.html")
