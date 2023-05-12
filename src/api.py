@@ -43,6 +43,7 @@ def api_authorized(f):
     user = conn.execute(
       Tokens.select().where(Tokens.c.key == token)
     ).fetchone()
+    conn.close()
     if user is None:
       return json_fail("Unauthorized", 401)
     request.token = token
@@ -108,10 +109,9 @@ def create_instance():
     "properties": {
       "name": {"type": "string"},
       "player": {"type": "integer"},
-      "duration": {"type": "integer"},
       "flag": {"type": "string"},
     },
-    "required": ["name", "player", "duration", "flag"],
+    "required": ["name", "player", "flag"],
   }
   
   try:
@@ -172,7 +172,7 @@ def create_instance():
       return json_fail("The container did not expose a port. Please contact an admin", 500)
   
   # Create a db entry
-  expiry = datetime.now() + timedelta(seconds=data["duration"])
+  expiry = datetime.now() + timedelta(seconds=detail.duration)
   conn.execute(
     insert(History).
     values(instance=detail.id, player=data["player"], token=request.token,
@@ -180,7 +180,7 @@ def create_instance():
            host=settings["host"], port=port, docker_id=container.id)
   )
   conn.commit()
-  scheduler.add_job(destroy_instance, 'date', run_date=expiry, args=[data])
+  scheduler.add_job(_destroy_instance, 'date', run_date=expiry, args=[data])
   conn.close()
   return query_instance()
 

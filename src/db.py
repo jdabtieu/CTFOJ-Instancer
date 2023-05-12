@@ -23,6 +23,7 @@ AvailableInstances = Table(
   Column('config', String, nullable=False),
   Column('global', Boolean, nullable=False),
   Column('connstr', String, nullable=False),
+  Column('duration', Integer, nullable=False),
 )
 Users = Table(
   'users', meta,
