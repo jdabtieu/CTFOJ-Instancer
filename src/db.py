@@ -21,7 +21,7 @@ AvailableInstances = Table(
   Column('key', String, unique=True, nullable=False),
   Column('image_name', String, nullable=False),
   Column('config', String, nullable=False),
-  Column('global', Boolean, nullable=False),
+  Column('is_global', Boolean, nullable=False),
   Column('connstr', String, nullable=False),
   Column('duration', Integer, nullable=False),
 )

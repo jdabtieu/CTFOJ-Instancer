@@ -3,6 +3,8 @@ from datetime import datetime
 from flask import Flask, render_template, redirect, flash, send_from_directory
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
+import json
+from sqlalchemy import insert
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from helpers import *
@@ -99,12 +101,65 @@ def history():
   
   return render_template("history.html", data=data[::-1])
 
-@app.route("/images") # TODO
+@app.route("/images")
 @login_required
 def images():
-  return render_template("images.html")
+  conn = engine.connect()
+  images = conn.execute(
+    AvailableInstances.select()
+  ).fetchall()
+  conn.close()
+  return render_template("images.html", data=images)
   
-# TODO create images endpoints
+@app.route("/image/create", methods=["GET", "POST"])
+@login_required
+def create_image():
+  if request.method == "GET":
+    return render_template("create_image.html")
+
+  # Reached via POST
+  key = request.form.get("key")
+  image_name = request.form.get("image_name")
+  config = request.form.get("config")
+  is_global = bool(request.form.get("global"))
+  connstr = request.form.get("connstr")
+  duration = int(request.form.get("duration"))
+    
+  if not key or not image_name or not config or not connstr or not duration:
+    flash('You have not entered all required fields', 'danger')
+    return render_template("create_image.html"), 400
+
+  # Check if fields are valid
+  if duration < 1:
+    flash('Duration must be at least 1 second', 'danger')
+    return render_template("create_image.html"), 400
+  try:
+    json.loads(config)
+  except ValueError:
+    flash('Invalid config', 'danger')
+    return render_template("create_image.html"), 400
+
+  # Ensure problem does not already exist
+  conn = engine.connect()
+  image = conn.execute(
+    AvailableInstances.select().where(AvailableInstances.c.key == key)
+  ).fetchone()
+  if image is not None:
+    conn.close()
+    flash('This key is already registered', 'danger')
+    return render_template("create_image.html"), 409
+  
+  conn.execute(
+    insert(AvailableInstances).
+    values(key=key, image_name=image_name, config=config,
+           is_global=is_global, connstr=connstr, duration=duration)
+  )
+  conn.commit()
+  conn.close()
+    
+  flash('Image successfully created', 'success')
+  return redirect("/images")
+
 
 @app.route("/tokens") # TODO manage tokens endpoint
 @login_required

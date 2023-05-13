@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}Available Images{% endblock %}
+
+{% block main %}
+<h1>Available Images</h1>
+<a href="/image/create">Create New Image</a>
+<div style="overflow-x: auto;">
+    <table class="table table-hover table-full-width">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col" style="width: 20%;">Key</th>
+                <th scope="col" style="width: 20%;">Docker Image Name</th>
+                <th scope="col" style="width: 60%;">Config</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+            <tr>
+                <td>{{ row["key"] }}</td>
+                <td>{{ row["image_name"] }}</td>
+                <td>
+                    Is global? {{ 'Yes' if row["is_global"] else 'No' }}<br>
+                    Connection Template: <code>{{ row["connstr"] }}</code><br>
+                    Config:<br>
+                    <code>{{ row["config"] }}</code>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
