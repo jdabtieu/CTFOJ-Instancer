@@ -154,7 +154,6 @@ def create_instance():
     return json_fail("An active instance already exists", 404)
   
   # Grab the challenge spec and prepare flag
-  client = docker.from_env()
   config = json.loads(detail.config)
   config["detach"] = True
   if "environment" not in config:
@@ -164,6 +163,7 @@ def create_instance():
   
   # Start the container
   try:
+    client = docker.from_env()
     container = client.containers.run(detail.image_name, **config)
   except docker.errors.ImageNotFound:
     conn.close()
