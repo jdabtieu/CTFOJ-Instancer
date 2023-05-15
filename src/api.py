@@ -6,7 +6,7 @@ from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 from functools import wraps
 from flask import Blueprint, make_response, request
-from sqlalchemy import update, insert
+from sqlalchemy import func, update, insert, select
 
 from db import engine, History, AvailableInstances, Tokens
 
@@ -68,11 +68,21 @@ def query_instance():
   except ValidationError:
     return json_fail("Bad request", 400)
   
-  # Query the instance metadata
+  # Get the image spec
   conn = engine.connect()
+  detail = conn.execute(
+    AvailableInstances.select().where(
+      AvailableInstances.c.key == data["name"]
+    )
+  ).fetchone()
+  if detail is None:
+    conn.close()
+    return json_fail("No container with that key exists", 404)
+
+  # Query the instance metadata
   instance = conn.execute(
     History.select().where(
-      AvailableInstances.c.key == data["name"],
+      History.c.instance == detail.id,
       History.c.player == data["player"],
       History.c.expiry_time > datetime.now(),
     )
@@ -80,16 +90,6 @@ def query_instance():
   if instance is None:
     conn.close()
     return json_success({"active": False})
-  
-  # Get the image spec
-  detail = conn.execute(
-    AvailableInstances.select().where(
-      AvailableInstances.c.id == instance.instance
-    )
-  ).fetchone()
-  if detail is None:
-    conn.close()
-    return json_fail("No container with that key exists", 404)
   
   # Construct the connection string
   host = instance.host
@@ -118,21 +118,9 @@ def create_instance():
     validate(instance=data, schema=schema)
   except ValidationError:
     return json_fail("Bad request", 400)
-  
-  # Make sure an instance doesn't already exist
-  conn = engine.connect()
-  instance = conn.execute(
-    History.select().where(
-      AvailableInstances.c.key == data["name"],
-      History.c.player == data["player"],
-      History.c.expiry_time > datetime.now(),
-    )
-  ).fetchone()
-  if instance is not None:
-    conn.close()
-    return json_fail("An active instance already exists", 404)
-  
+
   # Get the image spec
+  conn = engine.connect()
   detail = conn.execute(
     AvailableInstances.select().where(
       AvailableInstances.c.key == data["name"]
@@ -141,6 +129,29 @@ def create_instance():
   if detail is None:
     conn.close()
     return json_fail("No container with that key exists", 404)
+
+  # Rate limit to 4 simultaneous active instances
+  instance_cnt = conn.execute(
+    select(func.count(History.c.id)).where(
+      History.c.player == data["player"],
+      History.c.expiry_time > datetime.now(),
+    )
+  ).scalar_one()
+  if instance_cnt >= 4:
+    conn.close()
+    return json_fail("Please destroy your other instances before creating more", 429)
+  
+  # Make sure an instance doesn't already exist
+  instance = conn.execute(
+    History.select().where(
+      History.c.instance == detail.id,
+      History.c.player == data["player"],
+      History.c.expiry_time > datetime.now(),
+    )
+  ).fetchone()
+  if instance is not None:
+    conn.close()
+    return json_fail("An active instance already exists", 404)
   
   # Grab the challenge spec and prepare flag
   client = docker.from_env()
@@ -204,11 +215,21 @@ def destroy_instance():
   return _destroy_instance(data)
 
 def _destroy_instance(data):
-  # Get the running instance's metadata
+  # Get the image spec
   conn = engine.connect()
+  detail = conn.execute(
+    AvailableInstances.select().where(
+      AvailableInstances.c.key == data["name"]
+    )
+  ).fetchone()
+  if detail is None:
+    conn.close()
+    return json_fail("No container with that key exists", 404)
+
+  # Get the running instance's metadata
   instance = conn.execute(
     History.select().where(
-      AvailableInstances.c.key == data["name"],
+      History.c.instance == detail.id,
       History.c.player == data["player"],
       History.c.expiry_time > datetime.now(),
     )
