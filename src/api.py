@@ -19,6 +19,7 @@ scheduler = BackgroundScheduler({
   },
   'apscheduler.timezone': 'UTC',
 })
+scheduler.start()
 
 settings = {}
 settings["host"] = "localhost"
