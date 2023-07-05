@@ -192,7 +192,7 @@ def create_instance():
            host=app.config["INSTANCER_HOST"], port=port, docker_id=container.id)
   )
   conn.commit()
-  scheduler.add_job(_destroy_instance, 'date', run_date=(expiry - timedelta(seconds=1)), args=[data])
+  scheduler.add_job(_destroy_instance, 'date', run_date=(expiry - timedelta(seconds=1)), args=[data, container.id])
   conn.close()
   return query_instance()
 
@@ -215,30 +215,39 @@ def destroy_instance():
     return json_fail("Bad request", 400)
   return _destroy_instance(data)
 
-def _destroy_instance(data):
+def _destroy_instance(data, container_id=None):
   # Get the image spec
   conn = engine.connect()
-  detail = conn.execute(
-    AvailableInstances.select().where(
-      AvailableInstances.c.key == data["name"]
-    )
-  ).fetchone()
-  if detail is None:
-    conn.close()
-    return json_fail("No container with that key exists", 404)
+  if container_id is None:
+    detail = conn.execute(
+      AvailableInstances.select().where(
+        AvailableInstances.c.key == data["name"]
+      )
+    ).fetchone()
+    if detail is None:
+      conn.close()
+      return json_fail("No container with that key exists", 404)
 
-  # Get the running instance's metadata
-  instance = conn.execute(
-    History.select().where(
-      History.c.instance == detail.id,
-      History.c.player == data["player"],
-      History.c.expiry_time > datetime.now(),
-    )
-  ).fetchone()
-  if instance is None:
-    conn.close()
-    return json_fail("This instance is not active", 404)
-  
+    # Get the running instance's metadata
+    instance = conn.execute(
+      History.select().where(
+        History.c.instance == detail.id,
+        History.c.player == data["player"],
+        History.c.expiry_time > datetime.now(),
+      )
+    ).fetchone()
+    if instance is None:
+      conn.close()
+      return json_fail("This instance is not active", 404)
+  else:
+    instance = conn.execute(
+      History.select().where(
+        History.c.docker_id == container_id,
+      )
+    ).fetchone()
+    if instance is None:
+      conn.close()
+      return json_fail("This instance does not exist", 404)
   # Get the running instance's Docker data
   client = docker.from_env()
   try:
@@ -255,8 +264,7 @@ def _destroy_instance(data):
     return json_fail("This instance is not active", 404)
   
   # Kill the container and update the stop time
-  container.stop(timeout=0)
-  container.remove()
+  container.remove(force=True)
   conn.execute(
     update(History).
     where(History.c.id == instance.id).
