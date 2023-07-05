@@ -1,6 +1,11 @@
 # CTFOJ-Instancer
 Instancer for secure CTF challenges hosted with CTFOJ
 
+## Preface (A Warning)
+**CTFOJ-Instancer is currently in <ins>alpha</ins>. Documentation is complete, nice-to-have features are missing, and you cannot use it yet without tinkering with the database.**
+Technically, if you try hard enough, it is serviceable for a real CTF, but requires a lot of effort to run and maintain.
+This will be fixed in the upcoming weeks and will become more usable.
+
 ## Installation
 CTFOJ-Instancer is a web app, and to start using it:
 - Run it under Ubuntu or Debian (untested for other Unix distros, probably won't work under Windows)
