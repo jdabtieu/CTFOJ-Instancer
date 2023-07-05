@@ -19,10 +19,9 @@ scheduler = BackgroundScheduler({
   },
   'apscheduler.timezone': 'UTC',
 })
-scheduler.start()
+if not scheduler.running:
+  scheduler.start()
 
-settings = {}
-settings["host"] = "localhost"
 
 # Flask
 api = Blueprint("api", __name__)
@@ -184,15 +183,16 @@ def create_instance():
       return json_fail("The container did not expose a port. Please contact an admin", 500)
   
   # Create a db entry
+  from application import app
   expiry = datetime.now() + timedelta(seconds=detail.duration)
   conn.execute(
     insert(History).
     values(instance=detail.id, player=data["player"], token=request.token,
            request_time=datetime.now(), expiry_time=expiry, flag=data["flag"],
-           host=settings["host"], port=port, docker_id=container.id)
+           host=app.config["INSTANCER_HOST"], port=port, docker_id=container.id)
   )
   conn.commit()
-  scheduler.add_job(_destroy_instance, 'date', run_date=expiry, args=[data])
+  scheduler.add_job(_destroy_instance, 'date', run_date=(expiry - timedelta(seconds=1)), args=[data])
   conn.close()
   return query_instance()
 
