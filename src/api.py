@@ -77,7 +77,7 @@ def query_instance():
   ).fetchone()
   if detail is None:
     conn.close()
-    return json_fail("No container with that key exists", 404)
+    return json_fail("No container with that key exists. Please contact an admin.", 404)
 
   # Query the instance metadata
   instance = conn.execute(
@@ -128,7 +128,7 @@ def create_instance():
   ).fetchone()
   if detail is None:
     conn.close()
-    return json_fail("No container with that key exists", 404)
+    return json_fail("No container with that key exists. Please contact an admin.", 404)
 
   # Rate limit to 4 simultaneous active instances
   instance_cnt = conn.execute(
@@ -139,7 +139,7 @@ def create_instance():
   ).scalar_one()
   if instance_cnt >= 4:
     conn.close()
-    return json_fail("Please destroy your other instances before creating more", 429)
+    return json_fail("You have too many active instances. Please destroy your other instances before creating more.", 429)
   
   # Make sure an instance doesn't already exist
   instance = conn.execute(

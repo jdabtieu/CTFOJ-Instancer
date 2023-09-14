@@ -7,14 +7,15 @@ Technically, if you try hard enough, it is serviceable for a real CTF, but requi
 This will be fixed in the upcoming weeks and will become more usable.
 
 ## Installation
-CTFOJ-Instancer is a web app, and to start using it:
-- Run it under Ubuntu or Debian (untested for other Unix distros, probably won't work under Windows)
+CTFOJ-Instancer is a **Linux-only (ideally Ubuntu/Debian)** web app, and to start using it:
+- Install Docker
+- Grant the web daemon user the `docker` group with `sudo usermod -aG docker username`.
+- Ensure python3 is installed and the dependencies are installed (`pip3 install -r requirements.txt` in the `src/` folder)
+- Run `install.py`
 - Run it as a web server (ideally, port 443) and make it available at some public IP/domain
   - Install the dependencies in requirements.txt as well as Docker Engine
   - Use a WSGI server to point to application.py
   - Ideally proxy that through nginx
-- Create an API token
-- Add the instancer's IP/domain name and token to CTFOJ's settings.py
 - Ensure ports 443 and 32768+ are not blocked by a firewall
 
 ## Setting up instances
