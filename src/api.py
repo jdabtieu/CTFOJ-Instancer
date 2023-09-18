@@ -5,7 +5,7 @@ import json
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 from functools import wraps
-from flask import Blueprint, make_response, request
+from flask import Blueprint, make_response, redirect, request
 from sqlalchemy import func, update, insert, select
 
 from db import engine, History, AvailableInstances, Tokens
@@ -49,6 +49,10 @@ def api_authorized(f):
     request.token = token
     return f(*args, **kwargs)
   return decorated_function
+
+@api.route("/")
+def api_docs():
+  return redirect("https://github.com/jdabtieu/CTFOJ-Instancer/wiki/Public-API-Documentation")
 
 @api.route("/query", methods=["POST"])
 @api_authorized
