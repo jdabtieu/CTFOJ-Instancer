@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+
+{% block title %}Tokens{% endblock %}
+
+{% block main %}
+<h1>Tokens</h1>
+<p><a href="#" onclick="document.querySelector('#createtoken').style.display = 'block'">Create New Token</a></p>
+<form id="createtoken" action="/tokens/add" method="POST" style="display: none;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input name="name" placeholder="Name" class="form-control">
+  <input type="submit" class="btn btn-primary">
+</form>
+<i>Tokens are used for CTFOJ to send authenticated requests to the instancer.</i>
+<div style="overflow-x: auto;">
+    <table class="table table-hover table-full-width">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col" style="width: 70%;">Name</th>
+                <th scope="col" style="width: 30%;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+            <tr>
+                <td>{{ row["name"] }}</a></td>
+                <td><form action="/tokens/revoke" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ row['id'] }}"><input type="submit" value="Revoke"></form></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

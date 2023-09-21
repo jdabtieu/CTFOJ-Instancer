@@ -4,7 +4,8 @@ from flask import Flask, render_template, redirect, flash, send_from_directory
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 import json
-from sqlalchemy import insert
+from secrets import token_hex
+from sqlalchemy import insert, delete
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from helpers import *
@@ -161,10 +162,51 @@ def create_image():
   return redirect("/images")
 
 
-@app.route("/tokens") # TODO manage tokens endpoint
+@app.route("/tokens")
 @login_required
 def tokens():
-  return render_template("tokens.html")
+  conn = engine.connect()
+  tokens = conn.execute(
+    Tokens.select()
+  ).fetchall()
+  conn.close()
+  return render_template("tokens.html", data=tokens)
+
+@app.route("/tokens/revoke", methods=["POST"])
+@login_required
+def revoke_token():
+  id = request.form.get("id")
+  if not id:
+    flash("Must provide token ID", "danger")
+    return redirect("/tokens")
+  conn = engine.connect()
+  conn.execute(
+    delete(Tokens).
+    where(Tokens.c.id == id)
+  )
+  conn.commit()
+  conn.close()
+  flash("Successfully deleted", "success")
+  return redirect("/tokens")
+
+@app.route("/tokens/add", methods=["POST"])
+@login_required
+def add_token():
+  name = request.form.get("name")
+  if not id:
+    flash("Must provide token name", "danger")
+    return redirect("/tokens")
+  key = token_hex(48)
+  conn = engine.connect()
+  conn.execute(
+    insert(Tokens).
+    values(name=name, key=key)
+  )
+  conn.commit()
+  conn.close()
+  flash("Successfully created new token.", "success")
+  flash(f"The token is {key}", "success")
+  return redirect("/tokens")
 
 @app.route("/assets/<path:filename>")
 def get_asset(filename):
