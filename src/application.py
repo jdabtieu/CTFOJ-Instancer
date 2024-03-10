@@ -1,4 +1,3 @@
-from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from flask import Flask, render_template, redirect, flash, send_from_directory
 from flask_session import Session
@@ -9,7 +8,7 @@ from sqlalchemy import insert, delete
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from helpers import *
-from db import engine, History, AvailableInstances, Users, Tokens
+from db import engine, History, Images, Users, Tokens
 from api import api
 
 # Flask
@@ -64,7 +63,7 @@ def active_instances():
     History.select().where(History.c.expiry_time > datetime.now())
   ).fetchall()
   images = conn.execute(
-    AvailableInstances.select()
+    Images.select()
   ).fetchall()
   conn.close()
   images = {x.id: x for x in images}
@@ -87,7 +86,7 @@ def history():
     History.select()
   ).fetchall()
   images = conn.execute(
-    AvailableInstances.select()
+    Images.select()
   ).fetchall()
   conn.close()
   images = {x.id: x for x in images}
@@ -107,7 +106,7 @@ def history():
 def images():
   conn = engine.connect()
   images = conn.execute(
-    AvailableInstances.select()
+    Images.select()
   ).fetchall()
   conn.close()
   return render_template("images.html", data=images)
@@ -143,7 +142,7 @@ def create_image():
   # Ensure problem does not already exist
   conn = engine.connect()
   image = conn.execute(
-    AvailableInstances.select().where(AvailableInstances.c.key == key)
+    Images.select().where(Images.c.key == key)
   ).fetchone()
   if image is not None:
     conn.close()
@@ -151,7 +150,7 @@ def create_image():
     return render_template("create_image.html"), 409
   
   conn.execute(
-    insert(AvailableInstances).
+    insert(Images).
     values(key=key, image_name=image_name, config=config,
            is_global=is_global, connstr=connstr, duration=duration)
   )
