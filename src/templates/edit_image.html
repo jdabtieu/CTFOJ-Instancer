@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Image{% endblock %}
+
+{% block main %}
+<h1>Edit Image</h1>
+<div class="alert alert-danger">
+    Make sure your Docker images cannot be used to gain access to the host or a competitor can gain access over the entire instancer (and more)!
+</div>
+<form autocomplete="off" method="post" enctype="multipart/form-data">
+    <div class="form-floating">
+        <input class="form-control mb-3" type="text" id="key" name="key" placeholder="Key (from CTFOJ)" value="{{ data['key'] }}" required>
+        <label for="key">Key (from CTFOJ)</label>
+    </div>
+    <div class="form-floating">
+        <input class="form-control mb-3" type="text" id="image_name" name="image_name" placeholder="Docker Image Name" value="{{ data['image_name'] }}" required>
+        <label for="image_name">Docker Image Name</label>
+    </div>
+    <div class="mb-3">
+        <textarea class="form-control mb-1"
+                  id="config"
+                  name="config"
+                  rows="20"
+                  placeholder="Config"
+                  required>{{ data['config'] }}</textarea>
+        For redpwn jail, use <code>{"privileged": true, "ports": {"5000": null}}</code> as a base. It must be in valid JSON format and match the parameters specified in <a href="https://docker-py.readthedocs.io/en/stable/containers.html">the Docker SDK</a>.
+  </div>
+    <div class="mb-3 toggle-input">
+        <div>
+            <span>Per-Team</span>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="global" name="global" {{ "checked" if data['is_global'] }}>
+            </div>
+            <span>Global</span>
+        </div>
+    </div>
+    <div class="form-floating">
+        <input class="form-control mb-3" type="text" id="connstr" name="connstr" placeholder="Connection String" value="{{ data['connstr'] }}" required>
+        <label for="connstr">Connection String (Samples: <code>nc HOST PORT</code> or <code>http://HOST:PORT/</code>)</label>
+    </div>
+    <div class="form-floating">
+        <input class="form-control mb-3" type="number" id="duration" name="duration" placeholder="Duration (seconds)" value="{{ data['duration'] }}" required>
+        <label for="duration">Duration (seconds)</label>
+    </div>
+    <input class="btn btn-primary" type="submit" id="submit" name="submit" value="Create">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+</form>
+{% endblock %}

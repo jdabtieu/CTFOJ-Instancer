@@ -17,7 +17,7 @@
         <tbody>
             {% for row in data %}
             <tr>
-                <td>{{ row["key"] }}</td>
+                <td>{{ row["key"] }}<br><a href="/image/edit/{{ row['id'] }}">Edit</a></td>
                 <td>{{ row["image_name"] }}</td>
                 <td>
                     Is global? {{ 'Yes' if row["is_global"] else 'No' }}<br>

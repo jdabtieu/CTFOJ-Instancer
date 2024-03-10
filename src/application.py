@@ -4,7 +4,7 @@ from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 import json
 from secrets import token_hex
-from sqlalchemy import insert, delete
+from sqlalchemy import insert, update, delete
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from helpers import *
@@ -159,6 +159,58 @@ def create_image():
     
   flash('Image successfully created', 'success')
   return redirect("/images")
+
+
+@app.route("/image/edit/<id>", methods=["GET", "POST"])
+@login_required
+def edit_image(id):
+  # Get image
+  conn = engine.connect()
+  image = conn.execute(
+    Images.select().where(Images.c.id == id)
+  ).fetchone()
+  if not image:
+    conn.close()
+    flash('This image does not exist', 'danger')
+    return redirect("/images")
+  
+  if request.method == "GET":
+    return render_template("edit_image.html", data=image)
+
+  # Reached via POST
+  key = request.form.get("key")
+  image_name = request.form.get("image_name")
+  config = request.form.get("config")
+  is_global = bool(request.form.get("global"))
+  connstr = request.form.get("connstr")
+  duration = int(request.form.get("duration"))
+    
+  if not key or not image_name or not config or not connstr or not duration:
+    flash('You have not entered all required fields', 'danger')
+    return render_template("edit_image.html"), 400
+
+  # Check if fields are valid
+  if duration < 1:
+    flash('Duration must be at least 1 second', 'danger')
+    return render_template("edit_image.html"), 400
+  try:
+    json.loads(config)
+  except ValueError:
+    flash('Invalid config', 'danger')
+    return render_template("edit_image.html"), 400
+  
+  conn.execute(
+    update(Images).
+    where(Images.c.id == id).
+    values(key=key, image_name=image_name, config=config,
+           is_global=is_global, connstr=connstr, duration=duration)
+  )
+  conn.commit()
+  conn.close()
+    
+  flash('Image successfully edited', 'success')
+  return redirect("/images")
+
 
 
 @app.route("/tokens")
